@@ -31,7 +31,8 @@ class Git(object):
                                  stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
-                                 close_fds=True)
+                                 close_fds=True,
+                                 env=opts.get('env'))
             data = opts.get("msg")
             if data:
                 p.stdin.write(data)

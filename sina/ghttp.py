@@ -63,10 +63,8 @@ class GHTTPServer(object):
     ]
 
     def __init__(self, config=None):
-        self.headers = {}
         self.set_config(config)
         self.git = Git(self.config.get('git_path'))
-        self.RE_SERVICES = []
 
     def set_config(self, config):
         self.config = config or {}
@@ -75,13 +73,19 @@ class GHTTPServer(object):
         self.config[key] = value
 
     def __call__(self, environ, start_response):
+        if hasattr(self, '_before_request_handler'):
+            self._before_request_handler(environ)
+        self.headers = {}
         self.env = environ
         body = self.call()
         start_response(self.status, self.headers.items())
+        if hasattr(self, '_after_request_handler'):
+            self._after_request_handler(environ)
         return body
 
     def call(self):
-        match = self.match_routing(self.env["PATH_INFO"].lstrip('/'), self.env["REQUEST_METHOD"])
+        match = self.match_routing(self.env["PATH_INFO"].lstrip('/'),
+                                   self.env["REQUEST_METHOD"])
         if not match:
             return self.render_not_found()
         cmd, path, reqfile, rpc = match
@@ -89,6 +93,13 @@ class GHTTPServer(object):
         self.reqfile = reqfile
         if cmd == "not_allowed":
             return self.render_method_not_allowed()
+
+        if hasattr(self, '_has_permission_handler'):
+            need_perm = self.get_permission(cmd, rpc)
+            has_perm = self._has_permission_handler(self.env, path, need_perm)
+            if not has_perm:
+                return self.render_no_access()
+
         self.dir = self.get_git_dir(path)
         if not self.dir:
             return self.render_not_found()
@@ -102,7 +113,8 @@ class GHTTPServer(object):
         git_cmd = "upload_pack" if self.rpc == "upload-pack" else "receive_pack"
         self.status = "200 OK"
         self.headers["Content-Type"] = "application/x-git-%s-result" % self.rpc
-        return getattr(self.git, git_cmd)(self.dir, {"msg": input}, callback)
+        env = self.env.get('env')
+        return getattr(self.git, git_cmd)(self.dir, {"msg": input, "env": env}, callback)
 
     def get_info_refs(self):
         service_name = self.get_service_type()
@@ -237,7 +249,6 @@ class GHTTPServer(object):
         input = self.env.get('wsgi.input')
         return input.read()
 
-
     # ------------------------------
     # packet-line handling functions
     # ------------------------------
@@ -312,13 +323,16 @@ class GHTTPServer(object):
 
     def get_config_setting(self, service_name):
         service_name = service_name.replace('-', '')
-        setting = self.git.get_config_setting(self.dir, "http.%s" % service_name)
+        setting = self.git.get_config_setting(self.dir,
+                                              "http.%s" % service_name)
         if service_name == 'uploadpack':
             return setting != 'false'
         else:
             return setting == 'true'
 
     def get_git_dir(self, path):
+        if hasattr(self, '_get_repo_path_handler'):
+            return self._get_repo_path_handler(self.env, path)
         root = self.get_project_root()
         path = join(root, path)
         if not self.is_subpath(path, root):
@@ -338,3 +352,32 @@ class GHTTPServer(object):
         checkpath = checkpath.replace("\/+$", '')
         if re.match("^%s(\/|$)" % checkpath, path):
             return True
+
+    # decorator hook
+
+    # args: environ
+    def before_request(self, f):
+        self._before_request_handler = f
+        return f
+
+    # args: environ
+    def after_request(self, f):
+        self._after_request_handler = f
+        return f
+
+    # args: environ, path
+    def get_repo_path(self, f):
+        self._get_repo_path_handler = f
+        return f
+
+    # args: environ, path, perm
+    def has_permission(self, f):
+        self._has_permission_handler = f
+        return f
+
+    def get_permission(self, cmd, rpc):
+        if cmd != 'service_rpc':
+            return 'read'
+        if rpc == 'upload-pack':
+            return 'read'
+        return 'write'
