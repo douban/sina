@@ -210,9 +210,33 @@ class GHTTPServer(object):
         self.git.update_server_info(self.dir)
 
     @property
+    def read_chunked_body(self):
+        # wsgiref with no chunked support
+        environ = self.env
+        input = environ.get('wsgi.input')
+        length = environ.get('CONTENT_LENGTH', '0')
+        length = 0 if length == '' else int(length)
+        body = ''
+        if length == 0:
+            if input is None:
+                return
+            if environ.get('HTTP_TRANSFER_ENCODING', '0') == 'chunked':
+                size = int(input.readline(), 16)
+                while size > 0:
+                    body += input.read(size)
+                    input.read(2)
+                    size = int(input.readline(), 16)
+        else:
+            body = input.read(length)
+        return body
+
+    @property
     def read_body(self):
-        input = self.env["wsgi.input"]
+        if self.config.get('chunked'):
+            return self.read_chunked_body
+        input = self.env.get('wsgi.input')
         return input.read()
+
 
     # ------------------------------
     # packet-line handling functions

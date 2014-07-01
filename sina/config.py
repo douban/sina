@@ -5,4 +5,5 @@ DEFAULT_CONFIG = {
     'receive_pack': True,
     'git_path': "git",
     'project_root': None,
+    'chunked': False,
 }
