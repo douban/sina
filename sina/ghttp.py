@@ -376,8 +376,8 @@ class GHTTPServer(object):
         return f
 
     def get_permission(self, cmd, rpc):
-        if cmd != 'service_rpc':
-            return 'read'
-        if rpc == 'upload-pack':
-            return 'read'
-        return 'write'
+        if cmd == 'get_info_refs':
+            rpc = self.get_service_type()
+        if rpc == 'receive-pack':
+            return 'write'
+        return 'read'
