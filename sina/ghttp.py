@@ -24,13 +24,16 @@ def format_date_time(timestamp):
 def callback(p):
     ofd = p.stdout.fileno()
     efd = p.stderr.fileno()
-    while True:
+    timeout = 5
+    while timeout:
         r_ready, w_ready, x_ready = select.select([ofd, efd], [], [], 1)
+        timeout -= 1
 
         if ofd in r_ready:
             data = os.read(ofd, 8192)
             if not data:
                 break
+            timeout += 1
             yield data
 
         if efd in r_ready:
