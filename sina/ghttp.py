@@ -4,6 +4,8 @@ import re
 import time
 import os
 import select
+import gzip
+import StringIO
 from os import access
 from os.path import join, exists, getmtime, getsize
 from urllib import unquote
@@ -23,7 +25,7 @@ def callback(p):
     ofd = p.stdout.fileno()
     efd = p.stderr.fileno()
     while True:
-        r_ready, w_ready, x_ready = select.select([ofd, efd], [], [], 0.5)
+        r_ready, w_ready, x_ready = select.select([ofd, efd], [], [], 1)
 
         if ofd in r_ready:
             data = os.read(ofd, 8192)
@@ -247,6 +249,10 @@ class GHTTPServer(object):
         if self.config.get('chunked'):
             return self.read_chunked_body
         input = self.env.get('wsgi.input')
+        if self.env.get('HTTP_CONTENT_ENCODING') == 'gzip':
+            compressedstream = StringIO.StringIO(input.read())
+            gzipper = gzip.GzipFile(fileobj=compressedstream)
+            return gzipper.read()
         return input.read()
 
     # ------------------------------
