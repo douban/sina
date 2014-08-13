@@ -206,7 +206,7 @@ class GHTTPServer(object):
         request.headers["Last-Modified"] = format_date_time(getmtime(reqfile))
 
         if cached:
-            self.hdr_cache_forenver(request)
+            self.hdr_cache_forever(request)
         else:
             self.hdr_nocache(request)
 
@@ -289,7 +289,7 @@ class GHTTPServer(object):
         request.headers["Pragma"] = "no-cache"
         request.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
 
-    def hdr_cache_forenver(self, request):
+    def hdr_cache_forever(self, request):
         now = int(time.time())
         request.headers["Date"] = str(now)
         request.headers["Expires"] = str(now + 31536000)
