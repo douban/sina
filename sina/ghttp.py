@@ -350,8 +350,22 @@ class GHTTPServer(object):
         path = join(root, path)
         if not self.is_subpath(path, root):
             return False
-        if exists(path):  # TODO: check is a valid git directory
+        if self.is_git_dir(path):
             return path
+        return False
+
+    def is_git_dir(self, d):
+        """ This is taken from the git setup.c:is_git_directory. """
+        isdir = os.path.isdir
+        join = os.path.join
+        isfile = os.path.isfile
+        islink = os.path.islink
+        if isdir(d) and (isdir(join(d, 'objects')) and
+                isdir(join(d, 'refs'))):
+            headref = join(d, 'HEAD')
+            return isfile(headref) or (
+                     islink(headref) and
+                     os.readlink(headref).startswith('refs'))
         return False
 
     def get_project_root(self):
