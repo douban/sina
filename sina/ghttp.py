@@ -24,6 +24,7 @@ def format_date_time(timestamp):
 def callback(p):
     ofd = p.stdout.fileno()
     efd = p.stderr.fileno()
+    p.stdin.flush()
     timeout = 5
     while timeout:
         r_ready, w_ready, x_ready = select.select([ofd, efd], [], [], 1)
