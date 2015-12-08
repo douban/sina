@@ -3,3 +3,5 @@
 build/
 dist/
 venv/
+.ropeproject/
+examples/test.git
